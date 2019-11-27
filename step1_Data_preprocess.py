@@ -7,7 +7,7 @@ Created on Fri Aug 30 15:41:00 2019
 
 #set environment to use GPU
 import os
-os.environ["THEANO_FLAGS"] = "device=gpu1"
+os.environ["THEANO_FLAGS"] = "device=gpu0"
 
 from keras.layers import Dense, Dropout, LSTM, Embedding
 from keras.preprocessing.sequence import pad_sequences
@@ -27,7 +27,7 @@ from sklearn.metrics import confusion_matrix
 
 #Make a new input including moving windows (a single array into multi window array)
 def windowArray(inputX,WINDOW):
-    inputX_win = [] 
+    inputX_win = []
     for i in range(len(inputX)-WINDOW+1):
         singleWin = inputX[i:i+WINDOW]
         #singleWin = singleWin.values
@@ -46,13 +46,14 @@ def create_model_win(WINDOW,input_data):
     model.add(LSTM(activation='relu',return_sequences=True, units=100,input_shape=input_shape))
     model.add(Dropout(0.5))
     model.add(LSTM(activation='relu',units=100))
-    #model.add(LSTM(output_dim=256, activation='sigmoid', inner_activation='hard_sigmoid'))
+#    model.add(LSTM(output_dim=256, activation='sigmoid', inner_activation='hard_sigmoid'))
     model.add(Dropout(0.5))
+#    model.add(LSTM(activation='relu',units=100))
     model.add(Dense(input_data.shape[2]))
 
     print ('Compiling...')
     model.compile(loss='mean_squared_error',optimizer='adam',metrics=['accuracy','mean_absolute_percentage_error'])#'rmsprop'
-    
+
     return model
 
 def CUSUM_bu(y_actual,y_predicted):
@@ -114,7 +115,7 @@ def CalculateDiff(df_cusum_win,cum_sen_head,dic_TH):
         for i in range(len(df_cusum_win[ele])):
             if float(df_cusum_win[ele].iloc[i]) > dic_TH[name+"_H"] or float(df_cusum_win[ele].iloc[i]) < dic_TH[name+"_L"]:
                 y_calculate[i] = 1
-                
+
         #calculate the difference
         print('checking error...')
         f1 = f1_score(data_y,y_calculate,average='binary')
@@ -122,9 +123,9 @@ def CalculateDiff(df_cusum_win,cum_sen_head,dic_TH):
         recall = recall_score(data_y,y_calculate,average='binary')
         print('testing precision, recall, f1')
         print(precision, recall, f1)
-        
+
         plot(y_calculate,data_y)
-        
+
     return  y_calculate,precision, recall, f1
 
 def CUSUMhead(sensor_head,actuator_head):
@@ -133,37 +134,38 @@ def CUSUMhead(sensor_head,actuator_head):
     for ele in sensor_head:
         cum_sen_head.append(str(ele)+"_H")
         cum_sen_head.append(str(ele)+"_L")
-    
+
     for ele in actuator_head:
         cum_act_head.append(str(ele)+"_H")
         cum_act_head.append(str(ele)+"_L")
-    return cum_sen_head,cum_act_head 
-    
+    return cum_sen_head,cum_act_head
+
 def plotData(df_cusum_win):
     for ele in df_cusum_win:
         plot(df_cusum_win[ele],data_y)
 
 def plot(t1,t2):
-    
+
     x1 = np.arange(len(t1))
     x2 = np.arange(len(t2))
-    
+
     plt.figure(1)
-    
-    plt.subplot(211) 
+
+    plt.subplot(211)
     plt.plot(x1, t1)
-    
+
     plt.subplot(212)
     plt.plot(x2, t2)
-    
+
     plt.show()
-    
+
 ###############TEST################
 
 #######################################Training################################
-WINDOW = 10
-df_train = pd.read_csv("WADI_normal.csv")
-df_train = df_train.fillna(0)
+WINDOW = 12
+df_train = pd.read_csv("normal_all.csv")
+#df_train_dif = df_train.max() - df_train.min()
+
 #df_train.drop('Row',axis=1, inplace=True)
 #df_train.drop('Normal/Attack',axis=1, inplace=True)
 #df_train.drop(' Timestamp',axis=1, inplace=True)
@@ -188,8 +190,8 @@ tr_y = data_train_scale[WINDOW:]
 #Create the LSTM model
 model = create_model_win(WINDOW,tr_x)
 #Load training data into the model
-hist = model.fit(tr_x, tr_y, batch_size=200, epochs=10, validation_split = 0.1)
-model.save('WADI.hdf5')
+hist = model.fit(tr_x, tr_y, batch_size=50, epochs=15, validation_split = 0.1)
+model.save('SWaT.hdf5')
 
 #model = load_model('final_p1.hdf5')
 
@@ -215,68 +217,70 @@ YY_actual = pd.DataFrame(tr_y,columns = df_train.columns)
 
 
 ###################################CUSUM#################################
-#model = load_model('mse_0.002675.hdf5')
-
-print("reading attack file...")
-df_data_x = pd.read_csv("new_p1_adv.csv")
-df_data_x_act = pd.read_csv("attack_p1_x.csv")
-df_data_y = pd.read_csv("Y.csv")
-#df_data_y1 = pd.read_csv("invariants check_Y.csv")
-#df_data_y2 = pd.read_csv("attack_p1_y.csv")
-#df_data_y = pd.read_csv("attack_y_stage1.csv")
-
-data_x = df_data_x_act#[::10]
-data_y = df_data_y[WINDOW:]
-
-#sensor_head = pd.read_csv("attack_x_sensor.csv").columns
-#actuator_head = pd.read_csv("attack_x_actuator.csv").columns
-
-sensor_head = ["FIT101","LIT101"]
-actuator_head = ["MV101","P101","P102"]
-
-#Data standardization
-data_x_stand = scaler.transform(data_x)
-df_x_stand_scale = pd.DataFrame(data_x_stand, columns = df_tr.columns)
-
-##Data scale to 0-1
-data_x_scale = min_max_scaler.fit_transform(data_x_stand)
-df_x_scale = pd.DataFrame(data_x_scale,columns = data_x.columns)
-
-#Add window
-df_x_win = np.reshape(np.array(data_x),(len(data_y),WINDOW,data_x.shape[-1]))#windowArray(data_x_scale,WINDOW)
-data_x_win = df_x_win[:-1]
-data_y_comp = data_x_scale[WINDOW:]
-
-#Prediction
-print('start predicting...')
-YY_predict_test = model.predict(data_x_win)
-df_YY_predict = pd.DataFrame(YY_predict_test,columns = df_data_x.columns) 
-df_YY_actual = pd.DataFrame(data_y_comp,columns = df_data_x.columns)
-results_attack = model.evaluate(data_x_win,df_YY_actual,batch_size=50)
-
-#precision,recall = check(YY_predict, YY)
-#mse = mean_squared_error(df_YY_actual,df_YY_predict)
-
-
-#Calculate model cusum
-print("calculating cusum....")
-df_cusum_win= CUSUM(df_YY_actual,df_YY_predict)
-#df_cusum= CUSUM_self(df_x_scale,df_YY_predict)
-
-cum_sen_head,cum_act_head = CUSUMhead(sensor_head,actuator_head)
-
-plotData(df_cusum_win)
-
-
-dic_TH={"LIT101_L":-2,"LIT101_H":50,"FIT101_L":-1.5,"FIT101_H":2,"MV101_L":-1,"MV101_H":5,"P101_H":10,"P101_L":-1.5,"P102_H":1.5,"P102_L":-2}
-
-#['FIT101_H', 'LIT101_H', 'MV101_H', 'P101_H', 'P102_H', 'FIT101_L','LIT101_L', 'MV101_L', 'P101_L', 'P102_L']
-
-
-#Calculate the difference 
-y_calculate,precision, recall, f1 = CalculateDiff(df_cusum_win,cum_sen_head,dic_TH)
-cm = confusion_matrix(data_y, y_calculate)
-print("cm:",cm)
+# =============================================================================
+# #model = load_model('mse_0.002675.hdf5')
+#
+# print("reading attack file...")
+# df_data_x = pd.read_csv("new_adv.csv")
+# df_data_x_act = pd.read_csv("attack_x.csv")
+# df_data_y = pd.read_csv("Y.csv")
+# #df_data_y1 = pd.read_csv("invariants check_Y.csv")
+# #df_data_y2 = pd.read_csv("attack_p1_y.csv")
+# #df_data_y = pd.read_csv("attack_y_stage1.csv")
+#
+# data_x = df_data_x_act#[::10]
+# data_y = df_data_y[WINDOW:]
+#
+# #sensor_head = pd.read_csv("attack_x_sensor.csv").columns
+# #actuator_head = pd.read_csv("attack_x_actuator.csv").columns
+#
+# sensor_head = ["FIT101","LIT101"]
+# actuator_head = ["MV101","P101","P102"]
+#
+# #Data standardization
+# data_x_stand = scaler.transform(data_x)
+# df_x_stand_scale = pd.DataFrame(data_x_stand, columns = df_tr.columns)
+#
+# ##Data scale to 0-1
+# data_x_scale = min_max_scaler.fit_transform(data_x_stand)
+# df_x_scale = pd.DataFrame(data_x_scale,columns = data_x.columns)
+#
+# #Add window
+# df_x_win = np.reshape(np.array(data_x),(len(data_y),WINDOW,data_x.shape[-1]))#windowArray(data_x_scale,WINDOW)
+# data_x_win = df_x_win[:-1]
+# data_y_comp = data_x_scale[WINDOW:]
+#
+# #Prediction
+# print('start predicting...')
+# YY_predict_test = model.predict(data_x_win)
+# df_YY_predict = pd.DataFrame(YY_predict_test,columns = df_data_x.columns)
+# df_YY_actual = pd.DataFrame(data_y_comp,columns = df_data_x.columns)
+# results_attack = model.evaluate(data_x_win,df_YY_actual,batch_size=50)
+#
+# #precision,recall = check(YY_predict, YY)
+# #mse = mean_squared_error(df_YY_actual,df_YY_predict)
+#
+#
+# #Calculate model cusum
+# print("calculating cusum....")
+# df_cusum_win= CUSUM(df_YY_actual,df_YY_predict)
+# #df_cusum= CUSUM_self(df_x_scale,df_YY_predict)
+#
+# cum_sen_head,cum_act_head = CUSUMhead(sensor_head,actuator_head)
+#
+# plotData(df_cusum_win)
+#
+#
+# dic_TH={"LIT101_L":-2,"LIT101_H":50,"FIT101_L":-1.5,"FIT101_H":2,"MV101_L":-1,"MV101_H":5,"P101_H":10,"P101_L":-1.5,"P102_H":1.5,"P102_L":-2}
+#
+# #['FIT101_H', 'LIT101_H', 'MV101_H', 'P101_H', 'P102_H', 'FIT101_L','LIT101_L', 'MV101_L', 'P101_L', 'P102_L']
+#
+#
+# #Calculate the difference
+# y_calculate,precision, recall, f1 = CalculateDiff(df_cusum_win,cum_sen_head,dic_TH)
+# cm = confusion_matrix(data_y, y_calculate)
+# print("cm:",cm)
+# =============================================================================
 
 
 
