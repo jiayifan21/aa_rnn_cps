@@ -302,7 +302,7 @@ data_x_win, data_y_comp,scaler,min_max_scaler = PreProcess(STATUS)
 df_YY_actual = pd.DataFrame(data_y_comp,columns = header)
 
 df_Y = pd.read_csv(Y_att)#Y
-Y = df_Y[WINDOW:]
+Y = df_Y[WINDOW-1:]
 
 #################Prediction################################################################
 #NormalPredict(model,PREDICTEDy)
