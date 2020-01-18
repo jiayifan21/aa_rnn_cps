@@ -274,9 +274,9 @@ def NormalPredict(model,PREDICTEDy):
 #STATUS = "P1"
 STATUS = "ALL"
 WINDOW = 12
-Y_all = "Y.csv"
+#Y_all = "Y.csv"
 Y_att = "Y_attack.csv"
-perturbation = 0.1
+perturbation = 0.01
 
 if STATUS == "ALL":
     NORMALfile = "normal_all.csv"
@@ -285,8 +285,8 @@ if STATUS == "ALL":
     PREDICTEDy = 'PREDICTION_all.csv'#for original predicted y
     PREDICTEDy_csv = 'PREDICTION_adv_sen0.1.csv' #for noised predicted y
     GRADIENT = "GRADIENT_10.csv"
-    NOISE_sen = "X_ADV_SEN10.csv"
-    NOISE_all = "X_ADV_ALL10.csv"
+    NOISE_sen = "X_ADV_SEN1.csv"
+    NOISE_all = "X_ADV_ALL1.csv"
 
 
     sensor_head = pd.read_csv("attack_x_sensor.csv").columns
@@ -313,16 +313,16 @@ Y = df_Y[WINDOW:]
 #NormalPredict(model,PREDICTEDy)
 
 ##############Add noise#####################################################################
-#Get gradient
-start_time = datetime.datetime.now().isoformat()
-adv = GetGradient(data_x_win,model,perturbation)
-end_time = datetime.datetime.now().isoformat()
-reshape_adv = np.reshape(np.array(adv),(len(adv)*WINDOW,len(header)))
-df_adv = pd.DataFrame(reshape_adv,columns = header)
+##Get gradient
+#start_time = datetime.datetime.now().isoformat()
+#adv = GetGradient(data_x_win,model,perturbation)
+#end_time = datetime.datetime.now().isoformat()
+#reshape_adv = np.reshape(np.array(adv),(len(adv)*WINDOW,len(header)))
+#df_adv = pd.DataFrame(reshape_adv,columns = header)
 
-#Write and read
-df_adv.to_csv(GRADIENT,index = False)
-#df_TRUE.to_csv(NOISE_rules,index = False)
+##Write and read
+#df_adv.to_csv(GRADIENT,index = False)
+##df_TRUE.to_csv(NOISE_rules,index = False)
 
 #Add noises
 adv_sen,adv_all = AddNoises(data_x_win,Y,GRADIENT,perturbation)
@@ -336,61 +336,7 @@ df_adv_all = pd.DataFrame(reshape_adv_all,columns = header)
 df_adv_all.to_csv(NOISE_all,index = False)
 
 
-################difference######################################
-df_adv = pd.read_csv(NOISE_sen)
-data_x = np.reshape(np.array(data_x_win),(len(data_x_win)*WINDOW,len(header)))
-df_x = pd.DataFrame(data_x,columns = df_adv.columns)
 
-ModifyRatio(df_adv,df_x)
-
-#############Prediciton adv################################################################
-df_adv = pd.read_csv(NOISE_sen)
-print('STEP4-start predicting...')
-adv = np.expand_dims(df_adv,axis = 0)
-array_adv = np.reshape(adv,(int(len(df_adv)/WINDOW),WINDOW,df_adv.shape[-1]))
-predict_test = model.predict(array_adv)
-predict_adv = pd.DataFrame(predict_test,columns = header)
-
-#write and read
-predict_adv.to_csv(PREDICTEDy_csv,index=False)
-
-##################CUSUM###################################################################
-df_YY_actual = df_YY_actual
-df_YY_predict = pd.read_csv(PREDICTEDy_csv) #for adv cusum
-#df_YY_predict = pd.read_csv(PREDICTEDy) #for original cusum
-
-
-#Calculate model cusum
-print("calculating cusum....")
-df_cusum_win= CUSUM(df_YY_actual,df_YY_predict,sensor_head,0.1)
-cum_sen_head,cum_act_head = CUSUMhead(sensor_head,actuator_head)
-
-plotData(df_cusum_win[cum_sen_head])
-
-
-if STATUS == "ALL":
-    a = 20000
-    dic_TH={"FIT101_H":16,"FIT101_L":-25,"LIT101_H":400,"LIT101_L":-400,"AIT202_H":1,"AIT203_L":-400,"FIT201_L":-10,"DPIT301_L":-200,"FIT301_L":-3.7,"LIT301_L":-0.01,"AIT401_H":280,"LIT401_L":-70,"AIT501_L":-1,"AIT502_L":-2300,"AIT503_L":-150,"AIT504_L":-1,"FIT501_H":a,"FIT502_H":a,"FIT503_H":a,"FIT504_H":a,"PIT501_H":a,"PIT502_H":a,"PIT503_H":a,"FIT601_H":0.6,"FIT601_L":-20}
-
-
-
-#Calculate the difference
-sens = dic_TH.keys()
-Y_calculate,precision, recall, f1 = CalculateDiff(df_cusum_win,sens,dic_TH,Y)
-cm = confusion_matrix(Y, Y_calculate)
-print("cm:",cm)
-
-
-##############check attacks##################################################################
-attack_y, attack_pre = checkAtt(np.array(Y_calculate), np.array(Y))
-print('attack caught:')
-attack_pre_set = list(set(attack_pre))
-print(attack_y)
-print(len(attack_pre)-len(attack_y))
-print(len(attack_pre_set))
-print(attack_pre_set)
-print('attack caught accuracy:')
-print(len(attack_pre_set)/len(attack_y))
 
 
 

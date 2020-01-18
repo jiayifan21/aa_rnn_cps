@@ -333,14 +333,14 @@ end_time = datetime.datetime.now().isoformat()
 
 
 ################difference######################################
-df_adv = pd.read_csv(NOISE_sen)
+df_adv = pd.read_csv(NOISE_all)
 data_x = np.reshape(np.array(data_x_win),(len(data_x_win)*WINDOW,len(header)))
 df_x = pd.DataFrame(data_x,columns = df_adv.columns)
 
 ModifyRatio(df_adv,df_x)
 
 #############Prediciton adv################################################################
-df_adv = pd.read_csv(NOISE_sen)
+df_adv = pd.read_csv(NOISE_all)
 print('STEP4-start predicting...')
 adv = np.expand_dims(df_adv,axis = 0)
 array_adv = np.reshape(adv,(int(len(df_adv)/WINDOW),WINDOW,df_adv.shape[-1]))

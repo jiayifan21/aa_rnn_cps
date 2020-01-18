@@ -25,10 +25,12 @@ from sklearn.metrics import confusion_matrix
 from scipy.spatial import distance
 
 
-STATUS = "ALL"
+
 MODEL = 'SWaT.hdf5'
 ATTACKfile = "attack_x.csv"
+###########to change
 ADVfile = "X_ADV_ALL10.csv"
+########to change
 ADV_rule = "X_ADV_ALL10_rule.csv"
 header_sen = pd.read_csv("attack_x_sensor.csv").columns
 header_act = pd.read_csv("attack_x_actuator.csv").columns
@@ -43,33 +45,30 @@ for i in header_act:
         actuator_head_P.append(i)
 WINDOW= 12
 
-POP_SIZE = 100                      # population size
+POP_SIZE = 50                      # population size
 CROSS_RATE = 0.4                    # mating probability (DNA crossover)
-MUTATION_RATE = 0.01                # mutation probability
-N_GENERATIONS = 1000
+MUTATION_RATE = 0.1                # mutation probability
+N_GENERATIONS = 100
 DNA_SIZE_MV = 6#(12,51)#INPUT.shape(1)
 DNA_SIZE_P = 19
 DNA_SIZE_sen = 26
+DNA_SIZE = 51
 BOUND_MV = [0,0.5,1]
 BOUND_P = [0,1]
 BOUND_sen = (0,100)#remenber to divided by 100 to get decimal
 
 
+def windowArray(inputX,WINDOW):
+    inputX_win = []
+    for i in range(len(inputX)-WINDOW+1):
+        singleWin = inputX[i:i+WINDOW]
+        #singleWin = singleWin.values
+        inputX_win.append(singleWin)
+    inputX_final = np.array(inputX_win)
+    return inputX_final
 
 
-df_X = pd.read_csv(ADVfile)
-length = int(len(df_X)/WINDOW)
-df_X = np.array(df_X).reshape(length,WINDOW,len(header))
-df_check = pd.read_csv(ADVfile)
-df_check = np.array(df_X).reshape(length,WINDOW,len(header))
-
-
-
-
-
-
-
-def PreProcess(STATUS):
+def PreProcess():
     NORMALfile = "normal_all.csv"
 
     df_train = pd.read_csv(NORMALfile)
@@ -81,15 +80,34 @@ def PreProcess(STATUS):
     min_max_scaler = preprocessing.MinMaxScaler()
     min_max_scaler.fit_transform(data_stand)
 
+    print("STEP1-reading attack file...")
+    df_data_x = pd.read_csv(ATTACKfile)
+    data_x = df_data_x
 
-    return scaler,min_max_scaler
+    #Data standardization
+    data_x_stand = scaler.transform(data_x)
+    #Data scale to 0-1
+    data_x_scale = min_max_scaler.fit_transform(data_x_stand)
+    df_x_scale = pd.DataFrame(data_x_scale,columns = data_x.columns)
 
-scaler,min_max_scaler = PreProcess(STATUS)
+    #Add window
+    df_x_win = windowArray(data_x_scale,WINDOW)
+    data_x_win = df_x_win[:-1]
+    data_y_comp = df_x_scale[WINDOW:]
 
+    return data_x_win, data_y_comp,scaler,min_max_scaler
+
+
+data_x_win, data_y_comp,scaler,min_max_scaler = PreProcess()
+
+df_X = pd.read_csv(ADVfile)
+length = int(len(df_X)/WINDOW)
+df_X = np.array(df_X).reshape(length,WINDOW,len(header))
+df_check = data_x_win
 
 
 class GA(object):
-    def __init__(self, DNA_size_mv,DNA_size_p, DNA_bound_mv,DNA_bound_p, cross_rate, mutation_rate, pop_size,i):
+    def __init__(self,DNA_size_mv,DNA_size_p, DNA_bound_mv,DNA_bound_p, cross_rate, mutation_rate, pop_size,i):
         self.DNA_size_mv = DNA_size_mv
         self.DNA_size_p = DNA_size_p
         #DNA_bound[1] += 1
@@ -121,7 +139,8 @@ class GA(object):
             flag = 1
             if y_original[i]==0 and y_check[i]!=0:
                 flag = 0
-            fitness.append(flag)
+            fit = flag*(1/np.linalg.norm(check_data_adv.iloc[i] - check_data_org.iloc[i]))
+            fitness.append(fit)
 
                     #print("thread will be found by rules")
     #            if y_original[ii]==1 and y_check[ii]!=1:
@@ -150,12 +169,12 @@ class GA(object):
     def crossover(self, parent, pop):
         if np.random.rand() < self.cross_rate:
             i_ = np.random.randint(0, self.pop_size, size=1)                        # select another individual from pop
-            cross_points = np.random.randint(0, 2, self.DNA_size).astype(np.bool)   # choose crossover points
+            cross_points = np.random.randint(0, 2, self.DNA_size_p+self.DNA_size_mv).astype(np.bool)   # choose crossover points
             parent[cross_points] = pop[i_, cross_points]                            # mating and produce one child
         return parent
 
     def mutate(self, child):
-        for point in range(self.DNA_size):
+        for point in range(self.DNA_size_p+self.DNA_size_mv):
             if np.random.rand() < self.mutate_rate:
                 child[point] = np.random.choice(self.DNA_bound_p)  # choose a random index
         return child
@@ -186,7 +205,6 @@ if __name__ == '__main__':
                 best_DNA = ga.pop[np.argmax(fitness)]
                 print('Gen', generation, ': ', best_DNA)
                 df_adv.at[i,header_act] = best_DNA
-                print(best_DNA[3])
                 list_rule_fail = ga.check_rule(df_adv,check_data_x)
                 if i not in list_rule_fail:
                     print("solve!!!!!!")

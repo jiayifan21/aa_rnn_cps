@@ -138,18 +138,7 @@ def checkAtt(state,df_train_y):
 
     return attackList_y,attackList_pre
 
-def PreProcess(STATUS):
-    if STATUS == "ALL":
-        NORMALfile = "normal_all.csv"
-        ATTACKfile = "attack_x.csv"
-        MODEL = 'final_all.hdf5'
-
-    if STATUS == "P1":
-        NORMALfile = "normal_p1.csv"
-        ATTACKfile = "attack_p1_x.csv"
-        MODEL = 'final_p1.hdf5'
-
-
+def PreProcess():
     df_train = pd.read_csv(NORMALfile)
     df_tr = df_train[4000:]
 
@@ -175,72 +164,6 @@ def PreProcess(STATUS):
     data_y_comp = df_x_scale[WINDOW:]
 
     return data_x_win, data_y_comp,scaler,min_max_scaler
-
-def GetGradient(data_x_win,model,perturbation):
-    y_pred = model.output
-    y_true = K.variable(np.array(df_YY_actual.iloc[0]))
-    #ten_x_scale = K.variable(np.array(data_x_win[0]))
-    loss = keras.losses.mean_squared_error(y_true, y_pred)
-    grads = K.gradients(loss,model.input)[0]
-    x_adv = K.sign(grads)
-    sess =K.get_session()
-    init = tf.compat.v1.global_variables_initializer()
-    sess.run(init)
-    x_adv_0 = x_adv[0]
-
-    adv = []
-    if len(Y) != len(data_x_win):
-        print("WARNING!!!! Unequal length of X and Y")
-    #len(df_x_scale)
-    for i in range(len(data_x_win)):
-        adv_i = sess.run(x_adv_0, feed_dict={model.input:[data_x_win[i]],y_true:np.array(df_YY_actual.iloc[i])})
-        if i%1000 == 0:
-            print(i)
-            print(datetime.datetime.now().isoformat())
-
-
-        df_grd_i = pd.DataFrame(adv_i,columns = header)
-        adv.append(np.array(df_grd_i))
-
-    return adv
-
-
-def AddNoises(data_x_win,Y,GRADIENT,perturbation):
-    adv_sen = []
-    adv_all = []
-    Y = np.array(Y)
-    read_grad = pd.read_csv(GRADIENT)
-    data_grad = np.reshape(np.array(read_grad),(len(data_x_win)*WINDOW,len(header)))
-
-    for i in range(len(data_x_win)):
-        df_grd_i = pd.DataFrame(data_grad[i],columns = header)
-        df_x_i = pd.DataFrame(data_x_win[i],columns = header)
-
-
-        if Y[i] == 0:
-            df_adv_sen = df_x_i[sensor_head] + df_grd_i[sensor_head]*perturbation
-            df_adv_act_mv = df_x_i[actuator_head_MV] + df_grd_i[actuator_head_MV]*0.5
-            df_adv_act_p = df_x_i[actuator_head_P] + df_grd_i[actuator_head_P]*1
-        elif Y[i] == 1:
-            df_adv_sen = df_x_i[sensor_head] - df_grd_i[sensor_head]*perturbation
-            df_adv_act_mv = df_x_i[actuator_head_MV] - df_grd_i[actuator_head_MV]*0.5
-            df_adv_act_p = df_x_i[actuator_head_P] - df_grd_i[actuator_head_P]*1
-        else:
-            print("WARNING2!!! Y includes unexpected value")
-
-        df_adv_sen = pd.concat([df_adv_sen,df_x_i[actuator_head_MV],df_x_i[actuator_head_P]],axis=1)
-        df_adv_sen = df_adv_sen[header]
-        df_adv_sen = np.clip(df_adv_sen,0,1)
-
-        df_adv = pd.concat([df_adv_sen,df_adv_act_mv,df_adv_act_p],axis=1)
-        df_adv = df_adv[header]
-        df_adv = np.clip(df_adv,0,1)
-
-        adv_sen.append(np.array(df_adv_sen))
-        adv_all.append(np.array(df_adv))
-
-    return adv_sen,adv_all
-
 
 def ModifyRatio(df_adv,df_x):
     sen_a = np.absolute(np.matrix(df_adv[sensor_head]-df_x[sensor_head]))
@@ -273,18 +196,21 @@ def NormalPredict(model,PREDICTEDy):
 #STATUS = "P1"
 STATUS = "ALL"
 WINDOW = 12
-Y_all = "Y.csv"
-Y_att = "Y_attack.csv"
+#Y_all = "Y.csv"
+#########to change
+Y_att = "Y_attack_sensor.csv"
 perturbation = 0.1
 
 if STATUS == "ALL":
     NORMALfile = "normal_all.csv"
     ATTACKfile = "attack_x.csv"
+    ###########to change
+    X_att = "X_ADV_SEN10.csv"
     MODEL = 'SWaT.hdf5'
-    PREDICTEDy = 'PREDICTION_all.csv'#for original predicted y
-    PREDICTEDy_csv = 'PREDICTION_adv_sen0.1.csv' #for noised predicted y
-    NOISEx = "X_adv_sen0.1.csv"
-    NOISE_rules = "TorF_all_noRule.csv"
+#    PREDICTEDy = 'PREDICTION_all.csv'#for original predicted y
+#    PREDICTEDy_csv = 'PREDICTION_adv_sen0.1.csv' #for noised predicted y
+#    X_adv = "X_adv_sen0.1.csv"
+#    X_adv_rules = "TorF_all_noRule.csv"
 
 
     sensor_head = pd.read_csv("attack_x_sensor.csv").columns
@@ -301,60 +227,38 @@ if STATUS == "ALL":
 
 #model = load_model('loss_na_p1.hdf5')
 model = load_model(MODEL)
-data_x_win, data_y_comp,scaler,min_max_scaler = PreProcess(STATUS)
+data_x_win, data_y_comp,scaler,min_max_scaler = PreProcess()
 df_YY_actual = pd.DataFrame(data_y_comp,columns = header)
 
 df_Y = pd.read_csv(Y_att)#Y
 Y = df_Y[WINDOW:]
+data_y = Y
 
 #################Prediction################################################################
 #NormalPredict(model,PREDICTEDy)
 
-##############Add noise#####################################################################
-#Get gradient
-start_time = datetime.datetime.now().isoformat()
-adv = GetGradient(data_x_win,model,perturbation)
-end_time = datetime.datetime.now().isoformat()
-reshape_adv = np.reshape(np.array(adv),(len(adv)*WINDOW,len(header)))
-df_adv = pd.DataFrame(reshape_adv,columns = header)
-
-#Write and read
-df_adv.to_csv(GRADIENT,index = False)
-#df_TRUE.to_csv(NOISE_rules,index = False)
-
-#Add noises
-adv_sen,adv_all = AddNoises(data_x_win,Y,GRADIENT,perturbation)
-
-reshape_adv_sen = np.reshape(np.array(adv_sen),(len(adv_sen)*WINDOW,len(header)))
-df_adv_sen = pd.DataFrame(reshape_adv_sen,columns = header)
-df_adv_sen.to_csv(NOISE_sen,index = False)
-
-reshape_adv_all = np.reshape(np.array(adv_all),(len(adv_all)*WINDOW,len(header)))
-df_adv_all = pd.DataFrame(reshape_adv_all,columns = header)
-df_adv_all.to_csv(NOISE_all,index = False)
-
-
 ################difference######################################
-df_adv = pd.read_csv(NOISEx)
+df_adv = pd.read_csv(X_att)
 data_x = np.reshape(np.array(data_x_win),(len(data_x_win)*WINDOW,len(header)))
 df_x = pd.DataFrame(data_x,columns = df_adv.columns)
 
 ModifyRatio(df_adv,df_x)
 
 #############Prediciton adv################################################################
-df_adv = pd.read_csv(NOISEx)
 print('STEP4-start predicting...')
 adv = np.expand_dims(df_adv,axis = 0)
 array_adv = np.reshape(adv,(int(len(df_adv)/WINDOW),WINDOW,df_adv.shape[-1]))
+#array_adv = np.array(data_x_win)
 predict_test = model.predict(array_adv)
 predict_adv = pd.DataFrame(predict_test,columns = header)
 
 #write and read
-predict_adv.to_csv(PREDICTEDy_csv,index=False)
+#predict_adv.to_csv(PREDICTEDy_csv,index=False)
 
 ##################CUSUM###################################################################
 df_YY_actual = df_YY_actual
-df_YY_predict = pd.read_csv(PREDICTEDy_csv) #for adv cusum
+df_YY_predict = predict_adv
+#df_YY_predict = pd.read_csv(PREDICTEDy_csv) #for adv cusum
 #df_YY_predict = pd.read_csv(PREDICTEDy) #for original cusum
 
 
@@ -366,9 +270,8 @@ cum_sen_head,cum_act_head = CUSUMhead(sensor_head,actuator_head)
 plotData(df_cusum_win[cum_sen_head])
 
 
-if STATUS == "ALL":
-    a = 20000
-    dic_TH={"FIT101_H":16,"FIT101_L":-25,"LIT101_H":400,"LIT101_L":-400,"AIT202_H":1,"AIT203_L":-400,"FIT201_L":-10,"DPIT301_L":-200,"FIT301_L":-3.7,"LIT301_L":-0.01,"AIT401_H":280,"LIT401_L":-70,"AIT501_L":-1,"AIT502_L":-2300,"AIT503_L":-150,"AIT504_L":-1,"FIT501_H":a,"FIT502_H":a,"FIT503_H":a,"FIT504_H":a,"PIT501_H":a,"PIT502_H":a,"PIT503_H":a,"FIT601_H":0.6,"FIT601_L":-20}
+a = 10000
+dic_TH={"FIT101_H":30,"FIT101_L":-5,"LIT101_H":200,"LIT101_L":-400,"AIT202_H":1,"AIT203_H":1500,"FIT201_L":-100,"DPIT301_L":-200,"FIT301_L":-3,"LIT301_L":-0.01,"AIT401_H":40000,"LIT401_L":-30,"AIT501_L":-1,"AIT502_L":-20,"AIT503_L":-250,"AIT504_L":-1,"FIT501_H":a,"FIT502_H":a,"FIT503_H":a,"FIT504_H":a,"PIT501_H":a,"PIT502_H":a,"PIT503_H":a,"FIT601_H":2,"FIT601_L":-15}
 
 
 
@@ -377,7 +280,9 @@ sens = dic_TH.keys()
 Y_calculate,precision, recall, f1 = CalculateDiff(df_cusum_win,sens,dic_TH,Y)
 cm = confusion_matrix(Y, Y_calculate)
 print("cm:",cm)
-
+print("acc:", (cm[0][0]+cm[1][1])/cm.sum())
+print("fp:", cm[0][1]/(cm[0][0]+cm[0][1]))
+print("fn:", cm[1][0]/(cm[1][0]+cm[1][1]))
 
 ##############check attacks##################################################################
 attack_y, attack_pre = checkAtt(np.array(Y_calculate), np.array(Y))
