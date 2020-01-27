@@ -28,10 +28,11 @@ from scipy.spatial import distance
 
 MODEL = 'SWaT.hdf5'
 ATTACKfile = "attack_x.csv"
+NORMALfile = "normal_all.csv"
 ###########to change
-ADVfile = "X_ADV_ALL10.csv"
+ADVfile = "X_ADV_ALL1.csv"
 ########to change
-ADV_rule = "X_ADV_ALL10_rule.csv"
+ADV_rule = "X_ADV_ALL1_rule.csv"
 header_sen = pd.read_csv("attack_x_sensor.csv").columns
 header_act = pd.read_csv("attack_x_actuator.csv").columns
 header = pd.read_csv(ATTACKfile).columns
@@ -45,10 +46,10 @@ for i in header_act:
         actuator_head_P.append(i)
 WINDOW= 12
 
-POP_SIZE = 50                      # population size
-CROSS_RATE = 0.4                    # mating probability (DNA crossover)
-MUTATION_RATE = 0.1                # mutation probability
-N_GENERATIONS = 100
+POP_SIZE = 10                      # population size
+CROSS_RATE = 0.2                   # mating probability (DNA crossover)
+MUTATION_RATE = 0.1               # mutation probability
+N_GENERATIONS = 10
 DNA_SIZE_MV = 6#(12,51)#INPUT.shape(1)
 DNA_SIZE_P = 19
 DNA_SIZE_sen = 26
@@ -63,14 +64,12 @@ def windowArray(inputX,WINDOW):
     for i in range(len(inputX)-WINDOW+1):
         singleWin = inputX[i:i+WINDOW]
         #singleWin = singleWin.values
-        inputX_win.append(singleWin)
+        inputX_win.append(np.array(singleWin))
     inputX_final = np.array(inputX_win)
     return inputX_final
 
 
 def PreProcess():
-    NORMALfile = "normal_all.csv"
-
     df_train = pd.read_csv(NORMALfile)
     df_tr = df_train[4000:]
 
@@ -82,25 +81,25 @@ def PreProcess():
 
     print("STEP1-reading attack file...")
     df_data_x = pd.read_csv(ATTACKfile)
-    data_x = df_data_x
-
-    #Data standardization
-    data_x_stand = scaler.transform(data_x)
-    #Data scale to 0-1
-    data_x_scale = min_max_scaler.fit_transform(data_x_stand)
-    df_x_scale = pd.DataFrame(data_x_scale,columns = data_x.columns)
+#    data_x = df_data_x
+#
+#    #Data standardization
+#    data_x_stand = scaler.transform(data_x)
+#    #Data scale to 0-1
+#    data_x_scale = min_max_scaler.fit_transform(data_x_stand)
+#    df_x_scale = pd.DataFrame(data_x_scale,columns = data_x.columns)
 
     #Add window
-    df_x_win = windowArray(data_x_scale,WINDOW)
+    df_x_win = windowArray(df_data_x,WINDOW)
     data_x_win = df_x_win[:-1]
-    data_y_comp = df_x_scale[WINDOW:]
 
-    return data_x_win, data_y_comp,scaler,min_max_scaler
+    return data_x_win,scaler,min_max_scaler
 
 
-data_x_win, data_y_comp,scaler,min_max_scaler = PreProcess()
+data_x_win,scaler,min_max_scaler = PreProcess()
 
 df_X = pd.read_csv(ADVfile)
+df_X = scaler.inverse_transform(min_max_scaler.inverse_transform(df_X))
 length = int(len(df_X)/WINDOW)
 df_X = np.array(df_X).reshape(length,WINDOW,len(header))
 df_check = data_x_win
@@ -127,14 +126,14 @@ class GA(object):
 
 
     def get_fitness(self,df_adv,check_data_x,i):                      #calculate a fitness number
-        check_data_org = scaler.inverse_transform(min_max_scaler.inverse_transform(check_data_x))
-        check_data_org = pd.DataFrame(check_data_org,columns = header).round(2)
+        #check_data_org = scaler.inverse_transform(min_max_scaler.inverse_transform(check_data_x))
+        check_data_org = pd.DataFrame(check_data_x,columns = header).round(2)
         y_original = RuleCheck_all(check_data_org,header)
         fitness = []
         for item in self.pop:
             df_adv.at[i,header_act] = item
-            check_data_adv = scaler.inverse_transform(min_max_scaler.inverse_transform(df_adv))
-            check_data_adv = pd.DataFrame(check_data_adv,columns = header).round(2)
+            #check_data_adv = scaler.inverse_transform(min_max_scaler.inverse_transform(df_adv))
+            check_data_adv = pd.DataFrame(df_adv,columns = header).round(2)
             y_check = RuleCheck_all(check_data_adv,header)
             flag = 1
             if y_original[i]==0 and y_check[i]!=0:
@@ -148,10 +147,10 @@ class GA(object):
         return np.array(fitness)
 
     def check_rule(self,df_adv,check_data_x):
-        check_data_adv = scaler.inverse_transform(min_max_scaler.inverse_transform(df_adv))
-        check_data_adv = pd.DataFrame(check_data_adv,columns = header).round(2)
-        check_data_org = scaler.inverse_transform(min_max_scaler.inverse_transform(check_data_x))
-        check_data_org = pd.DataFrame(check_data_org,columns = header).round(2)
+        #check_data_adv = scaler.inverse_transform(min_max_scaler.inverse_transform(df_adv))
+        check_data_adv = pd.DataFrame(df_adv,columns = header).round(2)
+        #check_data_org = scaler.inverse_transform(min_max_scaler.inverse_transform(check_data_x))
+        check_data_org = pd.DataFrame(check_data_x,columns = header).round(2)
         y_original = RuleCheck_all(check_data_org,header)
         y_check = RuleCheck_all(check_data_adv,header)
         list_rule_fail = []
@@ -191,28 +190,34 @@ class GA(object):
 if __name__ == '__main__':
     data_adv_rule = []
     num_change = []
+    k = 0
     for num in range(length):
         df_adv = pd.DataFrame(df_X[num], columns = header)
         check_data_x = pd.DataFrame(df_check[num], columns = header)
 
         ga = GA(DNA_size_mv = DNA_SIZE_MV,DNA_size_p = DNA_SIZE_P, DNA_bound_mv=BOUND_MV,DNA_bound_p=BOUND_P, cross_rate=CROSS_RATE,mutation_rate=MUTATION_RATE, pop_size=POP_SIZE,i = 0)
-        list_rule_fail = ga.check_rule(df_adv,check_data_x)
-        for i in list_rule_fail:
-            num_change.append(i)
-            print("array with failed points::::::",list_rule_fail)
-            for generation in range(N_GENERATIONS):
-                fitness = ga.get_fitness(df_adv,check_data_x,i)
-                best_DNA = ga.pop[np.argmax(fitness)]
-                print('Gen', generation, ': ', best_DNA)
-                df_adv.at[i,header_act] = best_DNA
-                list_rule_fail = ga.check_rule(df_adv,check_data_x)
-                if i not in list_rule_fail:
-                    print("solve!!!!!!")
-                    break
-                ga.evolve()
+        list_rule_fail = ga.check_rule(df_adv,check_data_x)       
+        if list_rule_fail != []:
+            print("%%%%%%%:",num)
+            k=k+1
+            print(k)
+            for i in list_rule_fail:
+                num_change.append(i)
+                #print("array with failed points::::::",list_rule_fail)
+                for generation in range(N_GENERATIONS):
+                    fitness = ga.get_fitness(df_adv,check_data_x,i)
+                    best_DNA = ga.pop[np.argmax(fitness)]
+                    #print('Gen', generation, ': ', best_DNA)
+                    df_adv.at[i,header_act] = best_DNA
+                    list_rule_fail = ga.check_rule(df_adv,check_data_x)
+                    if i not in list_rule_fail:
+                        #print("solve!!!!!!")
+                        break
+                    ga.evolve()
+    #            if i in list_rule_fail:
+    #                list_rule_fail.remove(i)
+    
         data_adv_rule.append(df_adv)
-
-
     reshape_adv = np.reshape(np.array(data_adv_rule),(len(data_adv_rule)*WINDOW,len(header)))
     df_adv = pd.DataFrame(reshape_adv,columns = header)
     #Write and read

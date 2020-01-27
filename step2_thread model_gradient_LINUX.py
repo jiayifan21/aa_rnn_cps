@@ -258,10 +258,10 @@ def ModifyRatio(df_adv,df_x):
     print("total # of actuators:",len(df_adv)*len(actuator_head))
     print("changed percentage:",act_change/(len(df_adv)*len(actuator_head)))
 
-def NormalPredict(model,PREDICTEDy):
+def NormalPredict(x_input,model,PREDICTEDy):
     #Prediction
     print('STEP2-start predicting...')
-    YY_predict_test = model.predict(data_x_win)
+    YY_predict_test = model.predict(x_input)
     df_YY_predict = pd.DataFrame(YY_predict_test,columns = header)
 
     #Write and read
@@ -282,11 +282,11 @@ if STATUS == "ALL":
     NORMALfile = "normal_all.csv"
     ATTACKfile = "attack_x.csv"
     MODEL = 'SWaT.hdf5'
-    PREDICTEDy = 'PREDICTION_all.csv'#for original predicted y
+    PREDICTEDy = 'PREDICTION_y.csv'#for original predicted y
     PREDICTEDy_csv = 'PREDICTION_adv_sen0.1.csv' #for noised predicted y
     GRADIENT = "GRADIENT_10.csv"
-    NOISE_sen = "X_ADV_SEN1.csv"
-    NOISE_all = "X_ADV_ALL1.csv"
+    NOISE_sen = "X_ADV_SEN10.csv"
+    NOISE_all = "X_ADV_ALL10.csv"
 
 
     sensor_head = pd.read_csv("attack_x_sensor.csv").columns
@@ -310,7 +310,7 @@ df_Y = pd.read_csv(Y_att)#Y
 Y = df_Y[WINDOW:]
 
 #################Prediction################################################################
-#NormalPredict(model,PREDICTEDy)
+#NormalPredict(data_x_win,model,PREDICTEDy_csv)
 
 ##############Add noise#####################################################################
 ##Get gradient
@@ -324,16 +324,16 @@ Y = df_Y[WINDOW:]
 #df_adv.to_csv(GRADIENT,index = False)
 ##df_TRUE.to_csv(NOISE_rules,index = False)
 
-#Add noises
-adv_sen,adv_all = AddNoises(data_x_win,Y,GRADIENT,perturbation)
-
-reshape_adv_sen = np.reshape(np.array(adv_sen),(len(adv_sen)*WINDOW,len(header)))
-df_adv_sen = pd.DataFrame(reshape_adv_sen,columns = header)
-df_adv_sen.to_csv(NOISE_sen,index = False)
-
-reshape_adv_all = np.reshape(np.array(adv_all),(len(adv_all)*WINDOW,len(header)))
-df_adv_all = pd.DataFrame(reshape_adv_all,columns = header)
-df_adv_all.to_csv(NOISE_all,index = False)
+##Add noises
+#adv_sen,adv_all = AddNoises(data_x_win,Y,GRADIENT,perturbation)
+#
+#reshape_adv_sen = np.reshape(np.array(adv_sen),(len(adv_sen)*WINDOW,len(header)))
+#df_adv_sen = pd.DataFrame(reshape_adv_sen,columns = header)
+#df_adv_sen.to_csv(NOISE_sen,index = False)
+#
+#reshape_adv_all = np.reshape(np.array(adv_all),(len(adv_all)*WINDOW,len(header)))
+#df_adv_all = pd.DataFrame(reshape_adv_all,columns = header)
+#df_adv_all.to_csv(NOISE_all,index = False)
 
 
 

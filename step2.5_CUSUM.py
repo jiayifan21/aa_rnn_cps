@@ -14,10 +14,10 @@ import pandas as pd
 import numpy as np
 #import time
 import copy
-#from tensorflow.keras import backend as K
-#from tensorflow.keras.models import load_model
-from keras import backend as K
-from keras.models import load_model
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model
+#from keras import backend as K
+#from keras.models import load_model
 
 import matplotlib.pyplot as plt
 import keras
@@ -28,6 +28,7 @@ from step2_rules import RuleCheck_stage1,RuleCheck_stage1_fix
 from step2_rules import RuleCheck_all, RuleCheck_all_fix
 from sklearn.metrics import confusion_matrix
 from scipy.spatial import distance
+from step1_Find_y import GT
 
 
 
@@ -79,7 +80,7 @@ def CUSUMhead(sensor_head,actuator_head):
 def plotData(df_cusum_win):
     for ele in df_cusum_win:
         print(ele)
-        plot(df_cusum_win[ele],data_y)
+        plot(df_cusum_win[ele],Y)
 
 def plot(t1,t2):
 
@@ -196,16 +197,19 @@ def NormalPredict(model,PREDICTEDy):
 #STATUS = "P1"
 STATUS = "ALL"
 WINDOW = 12
+features = 51
 #Y_all = "Y.csv"
 #########to change
-Y_att = "Y_attack_sensor.csv"
-perturbation = 0.1
+#Y_att = "Y_attack.csv"
+#perturbation = 0.1
 
 if STATUS == "ALL":
     NORMALfile = "normal_all.csv"
     ATTACKfile = "attack_x.csv"
     ###########to change
-    X_att = "X_ADV_SEN10.csv"
+    X_att = "X_ADV_SEN1.csv"
+    #############to change
+    Y_name = "Y_attack_SEN1 .csv"
     MODEL = 'SWaT.hdf5'
 #    PREDICTEDy = 'PREDICTION_all.csv'#for original predicted y
 #    PREDICTEDy_csv = 'PREDICTION_adv_sen0.1.csv' #for noised predicted y
@@ -230,12 +234,14 @@ model = load_model(MODEL)
 data_x_win, data_y_comp,scaler,min_max_scaler = PreProcess()
 df_YY_actual = pd.DataFrame(data_y_comp,columns = header)
 
-df_Y = pd.read_csv(Y_att)#Y
-Y = df_Y[WINDOW:]
-data_y = Y
+#df_Y = pd.read_csv(Y_att)#Y
+#Y = df_Y[WINDOW:]
+#data_y = Y
 
 #################Prediction################################################################
 #NormalPredict(model,PREDICTEDy)
+
+
 
 ################difference######################################
 df_adv = pd.read_csv(X_att)
@@ -252,8 +258,49 @@ array_adv = np.reshape(adv,(int(len(df_adv)/WINDOW),WINDOW,df_adv.shape[-1]))
 predict_test = model.predict(array_adv)
 predict_adv = pd.DataFrame(predict_test,columns = header)
 
-#write and read
+
+#################Get T(Va)#####################
+
+GT_Y = GT(predict_adv,Y_name,WINDOW,features)
+Y = GT_Y
+data_y = Y
+##write and read
 #predict_adv.to_csv(PREDICTEDy_csv,index=False)
+
+
+
+# =============================================================================
+#     df_ref_file = "sensor_threshold.xlsx"
+#     df_ref = pd.read_excel(df_ref_file)
+# #    df_input_scaled = pd.read_csv(df_input_file)
+#     df_input_data = scaler.inverse_transform(min_max_scaler.inverse_transform(df_input_x))
+#     df_input = pd.DataFrame(df_input_data,columns = df_input_x.columns)
+#     #df_input = df_input[4000:]
+#     #df_input = df_input.reset_index(drop=True)
+#
+#
+# #    a = df_input.min()
+#     #b=pd.DataFrame(columns = df_ref.columns)
+#
+#     Y = [0]*len(df_input)
+#
+#     for i in range(len(df_input)):
+#         for item in df_ref.columns:
+#             if df_input.at[i,item]>df_ref.at["H",item] or df_input.at[i,item]<df_ref.at["L",item]:
+#                 print(item)
+#     #            print(df_input.at[i,item])
+#     #            print(df_ref.at["H",item])
+#     #            print(df_ref.at["L",item])
+#                 Y[i] = 1
+#
+#     plot(Y,Y)
+#     Y = pd.DataFrame(Y)
+#     Y.to_csv(Y_name,index = False)
+#     return Y
+#
+# =============================================================================
+
+
 
 ##################CUSUM###################################################################
 df_YY_actual = df_YY_actual
@@ -270,10 +317,12 @@ cum_sen_head,cum_act_head = CUSUMhead(sensor_head,actuator_head)
 plotData(df_cusum_win[cum_sen_head])
 
 
+
+
 a = 10000
-dic_TH={"FIT101_H":30,"FIT101_L":-5,"LIT101_H":200,"LIT101_L":-400,"AIT202_H":1,"AIT203_H":1500,"FIT201_L":-100,"DPIT301_L":-200,"FIT301_L":-3,"LIT301_L":-0.01,"AIT401_H":40000,"LIT401_L":-30,"AIT501_L":-1,"AIT502_L":-20,"AIT503_L":-250,"AIT504_L":-1,"FIT501_H":a,"FIT502_H":a,"FIT503_H":a,"FIT504_H":a,"PIT501_H":a,"PIT502_H":a,"PIT503_H":a,"FIT601_H":2,"FIT601_L":-15}
+dic_TH={"FIT101_H":30,"FIT101_L":-5,"AIT202_H":1,"LIT301_L":-0.01,"LIT401_L":-30,"AIT501_L":-1,"AIT502_L":-20,"AIT504_L":-1,"FIT601_L":-15}
 
-
+#"LIT101_H":200,"LIT101_L":-400,"AIT203_L":-1500,"FIT201_L":-100,"AIT503_L":-250,
 
 #Calculate the difference
 sens = dic_TH.keys()
@@ -288,14 +337,13 @@ print("fn:", cm[1][0]/(cm[1][0]+cm[1][1]))
 attack_y, attack_pre = checkAtt(np.array(Y_calculate), np.array(Y))
 print('attack caught:')
 attack_pre_set = list(set(attack_pre))
-print(attack_y)
+#print(attack_y)
 print(len(attack_pre)-len(attack_y))
 print(len(attack_pre_set))
 print(attack_pre_set)
 print('attack caught accuracy:')
 print(len(attack_pre_set)/len(attack_y))
-
-
+print(X_att)
 
 
 

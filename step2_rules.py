@@ -41,8 +41,8 @@ def plot(t1,t2):
 #df_data = pd.read_csv("attack_x.csv")
 ##df_data.drop('Normal/Attack',axis=1, inplace=True)
 ##df_data.drop(' Timestamp',axis=1, inplace=True)
-#df_y_true = pd.read_csv("attack_p1_y.csv")
-#################RULES CHECKING###################33
+#df_y_true = pd.read_csv("Y_attack.csv")
+#################RULES CHECKING###################
 def RuleCheck_stage1(data,header):
 #    print("checking...")
     df_rules = pd.read_excel("./checking rules/New_Rules.xlsx")
@@ -1288,7 +1288,10 @@ def RuleCheck_all_fix(data,header):
 
     return df_data
 
-#y = RuleCheck(df_data)
+
+
+#header = df_data.columns
+#y = RuleCheck_all(df_data,header)
 #df_y = pd.DataFrame(y)
 #df_y.to_csv('invariants check_Y.csv',index = False)
 #

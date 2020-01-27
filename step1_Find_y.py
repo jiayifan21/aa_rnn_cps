@@ -40,36 +40,34 @@ def plot(t1,t2):
 
     plt.show()
 
-df_ref_file = "paper\sensor_threshold.xlsx"
-########to change
-df_input_file = "X_ADV_SEN10.csv"
-#df_input_file = "normal_all.csv"
-#############to change
-Y_name = "Y_attack_sensor.csv"
-
-df_ref = pd.read_excel(df_ref_file)
-df_input_scaled = pd.read_csv(df_input_file)
-df_input_data = scaler.inverse_transform(min_max_scaler.inverse_transform(df_input_scaled))
-df_input = pd.DataFrame(df_input_data,columns = df_input_scaled.columns)
-#df_input = df_input[4000:]
-#df_input = df_input.reset_index(drop=True)
 
 
-a = df_input.min()
-#b=pd.DataFrame(columns = df_ref.columns)
-
-Y = [0]*len(df_input)
-
-for i in range(len(df_input)):
-    for item in df_ref.columns:
-        if df_input.at[i,item]>df_ref.at["H",item] or df_input.at[i,item]<df_ref.at["L",item]:
-            print(item)
-#            print(df_input.at[i,item])
-#            print(df_ref.at["H",item])
-#            print(df_ref.at["L",item])
-            Y[i] = 1
-
-plot(Y,Y)
-Y = pd.DataFrame(Y)
-Y.to_csv(Y_name,index = False)
+def GT(df_input_x,Y_name,WINDOW,features):
+    df_ref_file = "sensor_threshold.xlsx"
+    df_ref = pd.read_excel(df_ref_file,index_col=0)
+#    df_input_scaled = pd.read_csv(df_input_file)
+    df_input_data = scaler.inverse_transform(min_max_scaler.inverse_transform(df_input_x))
+    df_input = pd.DataFrame(df_input_data,columns = df_input_x.columns)
+    #df_input = df_input[4000:]
+    #df_input = df_input.reset_index(drop=True)
+    
+    
+#    a = df_input.min()
+    #b=pd.DataFrame(columns = df_ref.columns)
+    
+    Y = [0]*len(df_input)
+    
+    for i in range(len(df_input)):
+        for item in df_ref.columns:
+            if df_input.at[i,item]>df_ref.at["H",item] or df_input.at[i,item]<df_ref.at["L",item]:
+                print(item)
+    #            print(df_input.at[i,item])
+    #            print(df_ref.at["H",item])
+    #            print(df_ref.at["L",item])
+                Y[i] = 1
+    
+    plot(Y,Y)
+    Y = pd.DataFrame(Y)
+    Y.to_csv(Y_name,index = False)
+    return Y
 
