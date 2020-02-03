@@ -140,8 +140,8 @@ def DataProcess(df_tr,header,ratio,ATTACK,ATTACK_adv):
 
     #Data scale to 0-1
     data_x_scale = min_max_scaler.fit_transform(data_x_stand)
-    #x_adv = pd.read_csv(ATTACK_adv)[::WINDOW]
-    x_adv = ATTACK_adv[::WINDOW]
+    x_adv = pd.read_csv(ATTACK_adv)[::WINDOW]
+    #x_adv = ATTACK_adv[::WINDOW]
     x_adv = x_adv.round(3)
     x_data = pd.DataFrame(data_x_scale,columns = header)
 
@@ -170,7 +170,7 @@ def ModifyRatio(df_adv,df_x):
 #####################data##################
 NORMAL = "normal_all.csv"
 ATTACK = "attack_x.csv"
-#ATTACK_adv = "X_ADV_SEN10.csv"
+ATTACK_adv = "X_ADV_ALL10.csv"
 WINDOW = 12
 #DEFENSE_adv = "defence_adv_all.csv"
 #Read data
@@ -179,13 +179,13 @@ header = list(df_tr.columns)
 ratio = int(len(df_tr)*0.5)
 
 
-a =pd.read_csv("X_ADV_SEN1.csv",header=0)
-b = pd.read_csv("X_ADV_SEN10.csv",header=0)
-c = pd.read_csv("X_ADV_ALL1.csv",header=0)
-d = pd.read_csv("X_ADV_ALL10.csv",header=0)
-ATTACK_advs = pd.concat([a,b,c,d], axis=0, ignore_index=True)
-ATTACK_adv = pd.DataFrame(ATTACK_advs,columns = header,dtype = float)
-ATTACK_adv = ATTACK_adv.astype(float)
+#a =pd.read_csv("X_ADV_SEN1.csv",header=0)
+#b = pd.read_csv("X_ADV_SEN10.csv",header=0)
+#c = pd.read_csv("X_ADV_ALL1.csv",header=0)
+#d = pd.read_csv("X_ADV_ALL10.csv",header=0)
+#ATTACK_advs = pd.concat([a,b,c,d], axis=0, ignore_index=True)
+#ATTACK_adv = pd.DataFrame(ATTACK_advs,columns = header,dtype = float)
+#ATTACK_adv = ATTACK_adv.astype(float)
 
 
 x_train, x_test, y_train, y_test = DataProcess(df_tr,header,ratio,ATTACK,ATTACK_adv)
@@ -195,7 +195,7 @@ model_name = 'defence_all.hdf5'
 ######################################
 
 
-ModelTrain(x_train,y_train,model_name)
+#ModelTrain(x_train,y_train,model_name)
 ModelTest(x_test,y_test,model_name)
 RF(x_train, x_test, y_train, y_test)
 
